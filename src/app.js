@@ -1,8 +1,10 @@
 import express from 'express';
+import paymentIntentRoutes from './api/routes/paymentIntent.routes.js';
 
 const app = express();
 
 app.use(express.json());
+app.use('/api', paymentIntentRoutes);
 
 app.get('/health', (_, res) => {
     res.json({
