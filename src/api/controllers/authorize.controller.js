@@ -2,6 +2,7 @@ import PaymentIntent, {
     PAYMENT_INTENT_STATUS
 } from '../../domain/paymentIntent/paymentIntent.model.js';
 import { authorizePayment } from '../../services/mockBank.service.js';
+import { publishEvent } from '../../utils/eventPublisher.js';
 
 export const authorizePaymentIntent = async (req, res) => {
     const { id } = req.params;
@@ -25,7 +26,17 @@ export const authorizePaymentIntent = async (req, res) => {
 
         if (!bankResponse.success) {
             intent.status = PAYMENT_INTENT_STATUS.FAILED;
+            intent.failureReason = bankResponse.reason;
             await intent.save();
+
+            await publishEvent({
+                type: 'payment.failed',
+                payload: {
+                    paymentIntentId: intent._id,
+                    reason: bankResponse.reason,
+                    merchantId: intent.merchantId
+                }
+            });
 
             return res.status(402).json({
                 status: 'failed',
@@ -36,13 +47,36 @@ export const authorizePaymentIntent = async (req, res) => {
         intent.metadata.bankRef = bankResponse.bankRef;
         await intent.save();
 
+        await publishEvent({
+            type: 'payment.authorized',
+            payload: {
+                PaymentIntentId: intent._id,
+                amount: intent.amount,
+                merchantId: intent.merchantId
+            }
+        });
+
         return res.json({
             status: 'authorized',
             bankRef: bankResponse.bankRef
         });
     } catch (err) {
+
+        intent.status = PAYMENT_INTENT_STATUS.FAILED;
+        intent.failureReason = 'BANK_TIMEOUT';
+        await intent.save();
+
+        await publishEvent({
+            type: 'payment.failed',
+            payload: {
+                paymentIntentId: intent._id,
+                reason: 'BANK_TIMEOUT',
+                merchantId: intent.merchantId
+            }
+        });
+
         return res.status(504).json({
-            error: 'Bank Timeout, try agin'
+            error: 'Bank Timeout, try again'
         });
     }
 };

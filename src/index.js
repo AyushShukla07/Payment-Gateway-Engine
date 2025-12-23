@@ -5,6 +5,7 @@ import './config/env.js';
 import { connectMongo } from './config/mongo.js';
 import redis from './config/redis.js';
 import app from './app.js';
+import './workers/webhook.worker.js';
 
 const PORT = process.env.PORT;
 

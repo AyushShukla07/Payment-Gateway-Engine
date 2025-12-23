@@ -1,6 +1,7 @@
 import PaymentIntent, {
     PAYMENT_INTENT_STATUS
 } from '../../domain/paymentIntent/paymentIntent.model.js';
+import { publishEvent } from '../../utils/eventPublisher.js';
 
 export const capturePaymentIntent = async (req, res) => {
     const { id } = req.params;
@@ -19,14 +20,22 @@ export const capturePaymentIntent = async (req, res) => {
         });
     }
 
-    const captureAmount = requestedAmount || intent.amount;
     const alreadyCaptured = intent.capturedAmount || 0;
+    const remainingAmount = intent.amount - alreadyCaptured;
+    const captureAmount = requestedAmount ?? remainingAmount;
 
-    if (alreadyCaptured + captureAmount > intent.amount) {
+    if (captureAmount <= 0) {
         return res.status(400).json({
-            error: 'Capture amount exceeds authorized amount'
+            error: 'Capture amount must be greater than zero'
         });
     }
+
+    if (captureAmount > remainingAmount) {
+        return res.status(400).json({
+            error: 'Capture amount exceeds remaining authorized amount'
+        });
+    }
+
     intent.capturedAmount = alreadyCaptured + captureAmount;
 
     if (intent.capturedAmount === intent.amount) {
@@ -36,6 +45,15 @@ export const capturePaymentIntent = async (req, res) => {
     }
 
     await intent.save();
+
+    await publishEvent({
+        type: 'payment.captured',
+        payload: {
+            paymentIntentId: intent._id,
+            capturedAmount: captureAmount,
+            merchantId: intent.merchantId
+        }
+    });
 
     return res.json({
         id: intent._id,
