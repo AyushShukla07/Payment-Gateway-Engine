@@ -1,8 +1,9 @@
 import PaymentIntent from '../../domain/paymentIntent/paymentIntent.model.js';
+import { setIdempotentResponse } from '../../utils/idempotency.js';
 
 export const createPaymentIntent = async (req, res) => {
     const { amount, currency, metadata } = req.body;
-    const merchantId = req.user?.merchentId || 'demo_merchant';
+    const merchantId = req.user?.merchantId || 'demo_merchant';
 
 
     if (!amount || amount <= 0) {
@@ -16,10 +17,17 @@ export const createPaymentIntent = async (req, res) => {
         metadata
     });
 
-    return res.status(201).json({
+    const response = {
         id: intent._id,
         amount: intent.amount,
         currency: intent.currency,
         status: intent.status
-    });
+    };
+
+    await setIdempotentResponse(req.idempotencyKey, response);
+
+    return res.status(201).json(response);
 };
+
+
+
