@@ -30,6 +30,10 @@ const PaymentIntentSchema = new mongoose.Schema({
     createdAt: {
         type: Date,
         default: Date.now
+    },
+    capturedAmount: {
+        type: Number,
+        default: 0
     }
 });
 
