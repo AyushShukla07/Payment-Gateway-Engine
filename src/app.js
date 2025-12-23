@@ -1,10 +1,12 @@
 import express from 'express';
 import paymentIntentRoutes from './api/routes/paymentIntent.routes.js';
+import authorizeRoutes from './api/routes/authorize.routes.js';
 
 const app = express();
 
 app.use(express.json());
 app.use('/api', paymentIntentRoutes);
+app.use('/api', authorizeRoutes);
 
 app.get('/health', (_, res) => {
     res.json({
