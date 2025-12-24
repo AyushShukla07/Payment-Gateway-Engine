@@ -3,6 +3,7 @@ import PaymentIntent, {
 } from '../../domain/paymentIntent/paymentIntent.model.js';
 import { authorizePayment } from '../../services/mockBank.service.js';
 import { publishEvent } from '../../utils/eventPublisher.js';
+import { createLedgerEntries } from '../../domain/ledger/ledger.service.js';
 
 export const authorizePaymentIntent = async (req, res) => {
     const { id } = req.params;
@@ -54,6 +55,16 @@ export const authorizePaymentIntent = async (req, res) => {
                 amount: intent.amount,
                 merchantId: intent.merchantId
             }
+        });
+
+        await createLedgerEntries({
+            correlationId:intent._id.toString(),
+            amount:intent.amount,
+            currency:intent.currency,
+            referenceType:'payment_authorized',
+            referenceId:intent._id.toString(),
+            fromAccount:'customer_wallet',
+            toAccount:'merchant_hold'
         });
 
         return res.json({

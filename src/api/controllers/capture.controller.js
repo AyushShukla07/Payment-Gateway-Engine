@@ -2,6 +2,7 @@ import PaymentIntent, {
     PAYMENT_INTENT_STATUS
 } from '../../domain/paymentIntent/paymentIntent.model.js';
 import { publishEvent } from '../../utils/eventPublisher.js';
+import { createLedgerEntries } from '../../domain/ledger/ledger.service.js';
 
 export const capturePaymentIntent = async (req, res) => {
     const { id } = req.params;
@@ -53,6 +54,16 @@ export const capturePaymentIntent = async (req, res) => {
             capturedAmount: captureAmount,
             merchantId: intent.merchantId
         }
+    });
+
+    await createLedgerEntries({
+        correlationId: intent._id.toString(),
+        amount: captureAmount,
+        currency: intent.currency,
+        referenceType: 'payment_captured',
+        referenceId: intent._id.toString(),
+        fromAccount: 'merchant_hold',
+        toAccount: 'merchant_wallet'
     });
 
     return res.json({
