@@ -20,8 +20,6 @@ export const deliverWebhook = async ({ url, secret, event }) => {
             throw new error(`Webhook failed with status ${response.status}`);
         }
         return true;
-    } catch (err) {
-        throw err;
     } finally {
         clearTimeout(timeoutId);
     }

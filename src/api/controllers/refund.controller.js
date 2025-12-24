@@ -3,10 +3,11 @@ import PaymentIntent, {
 } from '../../domain/paymentIntent/paymentIntent.model.js';
 import Refund from '../../domain/refund/refund.model.js';
 import { createLedgerEntries } from '../../domain/ledger/ledger.service.js';
+import { eventQueue } from '../../queues/event.queue.js';
 
 export const refundPayment = async (req, res) => {
     const { id } = req.params;
-    const { amount } = req.body;
+    const amount = req.body?.amount;
     const idempotencyKey = req.headers['idempotency-key'];
 
     if (!idempotencyKey) {
@@ -34,8 +35,8 @@ export const refundPayment = async (req, res) => {
         });
     }
 
-    const alreadyRefund = intent.refundAmount || 0;
-    const refundableAmount = intent.capturedAmount - alreadyRefund;
+    const alreadyRefunded = intent.refundedAmount || 0;
+    const refundableAmount = intent.capturedAmount - alreadyRefunded;
     const refundAmount = amount ?? refundableAmount;
 
     if (refundAmount <= 0 || refundAmount > refundableAmount) {
@@ -64,8 +65,25 @@ export const refundPayment = async (req, res) => {
         currency: intent.currency,
         referenceType: 'refund',
         referenceId: refund._id.toString(),
-        fromAccount: 'merchnat_wallet',
+        fromAccount: 'merchant_wallet',
         toAccount: 'customer_wallet'
+    });
+
+    console.log('Enqueuing webhook event', {
+        paymentIntentId: intent._id.toString(),
+        merchantId: intent.merchantId
+    });
+
+
+    await eventQueue.add('payment.refunded', {
+        type: 'payment.refunded',
+        payload: {
+            paymentIntentId: intent._id.toString(),
+            merchantId: intent.merchantId,
+            refundId: refund._id.toString(),
+            amount: refundAmount,
+            currency: intent.currency
+        }
     });
 
     return res.json({
